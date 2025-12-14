@@ -1,0 +1,60 @@
+# ======================
+# OS / Editor
+# ======================
+.DS_Store
+*.swp
+*.swo
+*.tmp
+.idea/
+.vscode/
+
+# ======================
+# Secrets & env files
+# ======================
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+secrets/
+credentials/
+
+# ======================
+# Docker
+# ======================
+**/docker-data/
+**/data/
+**/volumes/
+
+# ======================
+# Terraform
+# ======================
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+crash.log
+
+# ======================
+# Puppet
+# ======================
+puppet/ssl/
+puppet/modules/
+puppet/hiera.yaml
+puppet/*.pem
+
+# ======================
+# CI / Build
+# ======================
+target/
+dist/
+build/
+coverage/
+
+# ======================
+# Logs
+# ======================
+*.log
+logs/
