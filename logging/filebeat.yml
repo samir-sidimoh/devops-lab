@@ -1,0 +1,33 @@
+filebeat.inputs:
+- type: container
+  paths:
+    - '/var/lib/docker/containers/*/*.log'
+  processors:
+    - add_docker_metadata:
+        host: "unix:///var/run/docker.sock"
+    - decode_json_fields:
+        fields: ["message"]
+        target: ""
+        overwrite_keys: true
+
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  indices:
+    - index: "docker-logs-%{+yyyy.MM.dd}"
+      when.contains:
+        container.name: "puppet"
+    - index: "jenkins-logs-%{+yyyy.MM.dd}"
+      when.contains:
+        container.name: "jenkins"
+    - index: "postgres-logs-%{+yyyy.MM.dd}"
+      when.contains:
+        container.name: "postgres"
+    - index: "filebeat-%{+yyyy.MM.dd}"
+
+logging.level: info
+logging.to_files: false

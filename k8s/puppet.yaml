@@ -1,0 +1,202 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: puppetserver-data-pvc
+  namespace: devops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: puppetdb-data-pvc
+  namespace: devops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: puppetserver
+  namespace: devops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: puppetserver
+  template:
+    metadata:
+      labels:
+        app: puppetserver
+    spec:
+      hostname: puppet
+      containers:
+      - name: puppetserver
+        image: puppet/puppetserver:latest
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8140
+        env:
+        - name: PUPPETSERVER_HOSTNAME
+          value: "puppet"
+        - name: PUPPETSERVER_JAVA_ARGS
+          value: "-Xms256m -Xmx512m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: puppetserver
+  namespace: devops
+spec:
+  selector:
+    app: puppetserver
+  ports:
+  - port: 8140
+    targetPort: 8140
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: puppet
+  namespace: devops
+spec:
+  selector:
+    app: puppetserver
+  ports:
+  - port: 8140
+    targetPort: 8140
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: puppetdb
+  namespace: devops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: puppetdb
+  template:
+    metadata:
+      labels:
+        app: puppetdb
+    spec:
+      initContainers:
+      - name: init-puppetdb
+        image: busybox:latest
+        command: ['sh', '-c', 'mkdir -p /opt/puppetlabs/server/data/puppetdb/certs && chmod -R 777 /opt/puppetlabs/server/data/puppetdb']
+        volumeMounts:
+        - name: puppetdb-data
+          mountPath: /opt/puppetlabs/server/data/puppetdb
+      containers:
+      - name: puppetdb
+        image: puppet/puppetdb:latest
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PUPPETDB_POSTGRES_HOSTNAME
+          value: "postgres"
+        - name: PUPPETDB_USER
+          value: "puppetdb"
+        - name: PUPPETDB_PASSWORD
+          value: "puppetdb"
+        - name: PUPPETDB_JAVA_ARGS
+          value: "-Xms256m -Xmx512m"
+        - name: USE_PUPPETSERVER
+          value: "false"
+        volumeMounts:
+        - name: puppetdb-data
+          mountPath: /opt/puppetlabs/server/data/puppetdb
+      volumes:
+      - name: puppetdb-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: puppetdb
+  namespace: devops
+spec:
+  selector:
+    app: puppetdb
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: puppetboard
+  namespace: devops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: puppetboard
+  template:
+    metadata:
+      labels:
+        app: puppetboard
+    spec:
+      enableServiceLinks: false
+      containers:
+      - name: puppetboard
+        image: puppet/puppetboard:latest
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        ports:
+        - containerPort: 8000
+        env:
+        - name: PUPPETDB_HOST
+          value: "puppetdb"
+        - name: PUPPETDB_PORT
+          value: "8080"
+        - name: GUNICORN_TIMEOUT
+          value: "90"
+        - name: WORKERS
+          value: "2"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: puppetboard
+  namespace: devops
+spec:
+  selector:
+    app: puppetboard
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: LoadBalancer
